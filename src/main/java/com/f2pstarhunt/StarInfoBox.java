@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;

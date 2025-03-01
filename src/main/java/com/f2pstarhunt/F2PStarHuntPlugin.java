@@ -23,7 +23,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.starinfo;
+package com.f2pstarhunt;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -99,10 +99,10 @@ import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.util.ColorUtil;
 
 @PluginDescriptor(
-	name = "Star Info",
-	description = "Displays tier, number of miners, health % above shooting stars"
+	name = "F2P StarHunt",
+	description = "Shares shooting star info with other miners"
 )
-public class StarInfoPlugin extends Plugin
+public class F2PStarHuntPlugin extends Plugin
 {
 	private static final int VARBIT_STAR_DISCOVERY = 15351; //  Star discovery buff: Returns the amount of bonus stardust the player will receive from stars.
 	private static final int NPC_ID = NullNpcID.NULL_10629;
@@ -189,7 +189,7 @@ public class StarInfoPlugin extends Plugin
 	ClientThread clientThread;
 
 	@Inject
-	private StarInfoConfig starConfig;
+	private F2PStarHuntConfig starConfig;
 
 	@Inject
 	private WorldInfo worldInfo;
@@ -198,10 +198,10 @@ public class StarInfoPlugin extends Plugin
 	private Hooks hooks;
 
 	@Provides
-	StarInfoConfig
+	F2PStarHuntConfig
 	provideConfig(ConfigManager configManager)
 	{
-		return configManager.getConfig(StarInfoConfig.class);
+		return configManager.getConfig(F2PStarHuntConfig.class);
 	}
 
 	@Override
@@ -803,10 +803,10 @@ public class StarInfoPlugin extends Plugin
 		}
 		switch (event.getKey())
 		{
-			case StarInfoConfig.TEXT_COLOR_KEY:
+			case F2PStarHuntConfig.TEXT_COLOR_KEY:
 				starOverlay.updateConfig();
 				break;
-			case StarInfoConfig.INFO_BOX_KEY:
+			case F2PStarHuntConfig.INFO_BOX_KEY:
 				if (starConfig.showInfoBox())
 				{
 					refresh();
@@ -817,7 +817,7 @@ public class StarInfoPlugin extends Plugin
 					infoBox = null;
 				}
 				break;
-			case StarInfoConfig.BONUS_INFO_BOX_KEY:
+			case F2PStarHuntConfig.BONUS_INFO_BOX_KEY:
 				if (starConfig.showStarDiscovery())
 				{
 					updateBonusCounter();
@@ -827,7 +827,7 @@ public class StarInfoPlugin extends Plugin
 					removeBonusCounter();
 				}
 				break;
-			case StarInfoConfig.HINT_ARROW_KEY:
+			case F2PStarHuntConfig.HINT_ARROW_KEY:
 				if (starConfig.showHintArrow())
 				{
 					refresh();

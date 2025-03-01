@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 import lombok.Getter;
 import lombok.Setter;

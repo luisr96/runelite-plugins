@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.ui.overlay.infobox.Counter;
@@ -8,12 +8,12 @@ import java.awt.image.BufferedImage;
 
 public class BonusCounter extends Counter
 {
-	private final StarInfoPlugin plugin;
+	private final F2PStarHuntPlugin plugin;
 
 	public BonusCounter(BufferedImage image, @Nonnull Plugin plugin, int bonus)
 	{
 		super(image, plugin, bonus);
-		this.plugin = (StarInfoPlugin) plugin;
+		this.plugin = (F2PStarHuntPlugin) plugin;
 	}
 
 	@Override

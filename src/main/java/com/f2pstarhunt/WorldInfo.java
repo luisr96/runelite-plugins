@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 import javax.inject.Inject;
 import net.runelite.client.game.WorldService;

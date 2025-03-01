@@ -23,7 +23,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.starinfo;
+package com.f2pstarhunt;
 
 import java.awt.Color;
 import net.runelite.client.config.Alpha;
@@ -34,7 +34,7 @@ import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
 
 @ConfigGroup("starinfoplugin")
-public interface StarInfoConfig extends Config
+public interface F2PStarHuntConfig extends Config
 {
 
 	String TEXT_COLOR_KEY = "textColor";

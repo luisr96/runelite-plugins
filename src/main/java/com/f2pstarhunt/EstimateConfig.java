@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 public enum EstimateConfig
 {

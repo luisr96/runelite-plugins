@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 import java.time.Instant;
 import java.time.ZoneId;

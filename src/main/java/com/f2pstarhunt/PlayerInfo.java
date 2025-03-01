@@ -1,4 +1,4 @@
-package com.starinfo;
+package com.f2pstarhunt;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

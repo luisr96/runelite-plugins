@@ -23,7 +23,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.starinfo;
+package com.f2pstarhunt;
 
 import com.google.common.base.Strings;
 import java.awt.Color;
@@ -44,12 +44,12 @@ public class StarInfoOverlay extends Overlay
 {
 
 	private static final int Y_ADJUST = 12;
-	private final StarInfoPlugin plugin;
-	private final StarInfoConfig config;
+	private final F2PStarHuntPlugin plugin;
+	private final F2PStarHuntConfig config;
 	private Color textColor;
 
 	@Inject
-	StarInfoOverlay(StarInfoPlugin plugin, StarInfoConfig config)
+	StarInfoOverlay(F2PStarHuntPlugin plugin, F2PStarHuntConfig config)
 	{
 		this.plugin = plugin;
 		this.config = config;
