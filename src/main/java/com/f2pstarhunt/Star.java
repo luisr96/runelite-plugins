@@ -115,4 +115,106 @@ public class Star
 	{
 		health = 100;
 	}
+
+	/**
+	 * Gets the formatted time until the current layer of the star is completed.
+	 *
+	 * @param star The star to calculate the time for
+	 * @param format The time format (TICKS or SECONDS)
+	 * @return A formatted string representing the time until the current layer is done, or null if unavailable
+	 */
+	public String getTimeUntilLayerDone(Star star, EstimateConfig format) {
+		if (star.getTierTicksEstimate() == null || star.getTier() <= 0 ||
+				star.getTier() > star.getTierTicksEstimate().length) {
+			return null;
+		}
+
+		int layerTicks = star.getTierTicksEstimate()[star.getTier() - 1];
+
+		if (format == EstimateConfig.TICKS) {
+			return String.valueOf(layerTicks);
+		} else if (format == EstimateConfig.SECONDS) {
+			// Convert ticks to minutes and seconds
+			int seconds = (layerTicks % 100) * 3 / 5;
+			int minutes = layerTicks / 100;
+			return minutes + ":" + String.format("%02d", seconds);
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Gets the time in ticks until the current layer of the star is completed.
+	 *
+	 * @return Time in ticks until the current layer is done, or -1 if unavailable
+	 */
+	public int getTimeUntilLayerDone() {
+		if (getTierTicksEstimate() == null || getTier() <= 0 ||
+				getTier() > getTierTicksEstimate().length) {
+			return -1;
+		}
+
+		return getTierTicksEstimate()[getTier() - 1];
+	}
+
+	/**
+	 * Gets the time in ticks until the star is fully depleted.
+	 *
+	 * @return Time in ticks until the star depletes, or -1 if unavailable
+	 */
+	public int getTimeUntilDepleted() {
+		if (getTierTicksEstimate() == null || getTierTicksEstimate().length == 0) {
+			return -1;
+		}
+
+		return getTierTicksEstimate()[0];
+	}
+
+	/**
+	 * Gets the formatted time until the current layer of the star is completed.
+	 *
+	 * @param format The time format (TICKS or SECONDS)
+	 * @return A formatted string representing the time until the current layer is done, or null if unavailable
+	 */
+	public String getFormattedTimeUntilLayerDone(EstimateConfig format) {
+		int layerTicks = getTimeUntilLayerDone();
+		if (layerTicks < 0) {
+			return null;
+		}
+
+		if (format == EstimateConfig.TICKS) {
+			return String.valueOf(layerTicks);
+		} else if (format == EstimateConfig.SECONDS) {
+			// Convert ticks to minutes and seconds
+			int seconds = (layerTicks % 100) * 3 / 5;
+			int minutes = layerTicks / 100;
+			return minutes + ":" + String.format("%02d", seconds);
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Gets the formatted time until the star is fully depleted.
+	 *
+	 * @param format The time format (TICKS or SECONDS)
+	 * @return A formatted string representing the time until the star depletes, or null if unavailable
+	 */
+	public String getFormattedTimeUntilDepleted(EstimateConfig format) {
+		int depletesTicks = getTimeUntilDepleted();
+		if (depletesTicks < 0) {
+			return null;
+		}
+
+		if (format == EstimateConfig.TICKS) {
+			return String.valueOf(depletesTicks);
+		} else if (format == EstimateConfig.SECONDS) {
+			// Convert ticks to minutes and seconds
+			int seconds = (depletesTicks % 100) * 3 / 5;
+			int minutes = depletesTicks / 100;
+			return minutes + ":" + String.format("%02d", seconds);
+		} else {
+			return null;
+		}
+	}
 }

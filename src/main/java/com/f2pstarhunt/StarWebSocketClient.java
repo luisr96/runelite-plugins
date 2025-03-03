@@ -64,8 +64,10 @@ public class StarWebSocketClient extends WebSocketClient {
             starData.addProperty("health", star.getHealth());
             starData.addProperty("miners", star.getMiners());
             starData.addProperty("location", star.getLocation().getDescription());
-            starData.addProperty("backup", star.isBackup());
+            starData.addProperty("backup", Integer.parseInt(star.getMiners()) == 0);
             starData.addProperty("lastUpdate", Instant.now().toString());
+            starData.addProperty("layerTime", star.getFormattedTimeUntilLayerDone(EstimateConfig.SECONDS));
+            starData.addProperty("depleteTime", star.getFormattedTimeUntilDepleted(EstimateConfig.SECONDS));
 
             JsonObject worldPoint = new JsonObject();
             worldPoint.addProperty("x", star.getWorldPoint().getX());
@@ -78,7 +80,7 @@ public class StarWebSocketClient extends WebSocketClient {
             message.add("data", starData);
 
             send(gson.toJson(message));
-            log.info("Sent star to server: World " + star.getWorld() + ", Tier " + star.getTier() + ", Backup: " + star.isBackup());
+            // log.info("Sent star to server: World " + star.getWorld() + ", Tier " + star.getTier() + ", Backup: " + star.isBackup() + ", Time remaining: " + star.getFormattedTimeUntilLayerDone(EstimateConfig.SECONDS) + " / " + star.getFormattedTimeUntilDepleted(EstimateConfig.SECONDS));
         } catch (Exception e) {
             log.error("Error sending star data", e);
         }
