@@ -45,6 +45,9 @@ public class Star
 	@Getter
 	@Setter
 	private String worldInfo = "";
+	@Getter
+	@Setter
+	private boolean isBackup = true;
 
 	public Star(NPC npc, int world)
 	{

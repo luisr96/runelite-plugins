@@ -39,6 +39,7 @@ import java.util.Queue;
 import java.util.Set;
 import javax.inject.Inject;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.AnimationID;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
@@ -91,6 +92,7 @@ import net.runelite.client.util.ImageUtil;
 		name = "Star Hunt Panel",
 		description = "Displays shooting star information in a panel"
 )
+@Slf4j
 public class F2PStarHuntPlugin extends Plugin
 {
 	private static final int NPC_ID = NullNpcID.NULL_10629;
@@ -150,12 +152,15 @@ public class F2PStarHuntPlugin extends Plugin
 
 	public int bonusCount;
 
+	private StarWebSocketClient webSocketClient;
+
 	@Inject
 	private ItemManager itemManager;
 
 	@Inject
 	Client client;
 
+	@Getter
 	@Inject
 	ClientThread clientThread;
 
@@ -198,6 +203,7 @@ public class F2PStarHuntPlugin extends Plugin
 				.panel(panel)
 				.build();
 		clientToolbar.addNavigation(navButton);
+		updateConnectionStatus();
 	}
 
 	@Override
@@ -208,6 +214,12 @@ public class F2PStarHuntPlugin extends Plugin
 
 		// Remove panel
 		clientToolbar.removeNavigation(navButton);
+
+		// Close WebSocket connection
+		if (webSocketClient != null) {
+			webSocketClient.close();
+			webSocketClient = null;
+		}
 	}
 
 	private void clear()
@@ -226,6 +238,45 @@ public class F2PStarHuntPlugin extends Plugin
 
 		NPC npc = (NPC) renderable;
 		return npc.getId() != NPC_ID;
+	}
+
+	public boolean isWebSocketConnected() {
+		return webSocketClient != null && webSocketClient.isOpen();
+	}
+
+	public void updateConnectionStatus() {
+		if (panel != null) {
+			boolean connected = isWebSocketConnected();
+			panel.updateConnectionStatus(connected);
+		}
+	}
+
+	public void connectToWebSocket() {
+		// Close any existing connection
+		if (webSocketClient != null) {
+			try {
+				webSocketClient.close();
+			} catch (Exception e) {
+				log.error("Error closing existing WebSocket connection", e);
+			}
+		}
+
+		String websocketUrl = config.websocketUrl();
+
+		if (websocketUrl == null || websocketUrl.isEmpty()) {
+			log.warn("Cannot connect: WebSocket URL is not configured");
+			return;
+		}
+
+		try {
+			webSocketClient = new StarWebSocketClient(websocketUrl, this);
+			webSocketClient.connect();
+			log.info("Connecting to WebSocket server: {}", websocketUrl);
+		} catch (Exception e) {
+			log.error("Failed to connect to WebSocket server", e);
+		} finally {
+			updateConnectionStatus();
+		}
 	}
 
 	@Subscribe
@@ -303,6 +354,15 @@ public class F2PStarHuntPlugin extends Plugin
 		{
 			client.addChatMessage(ChatMessageType.CONSOLE, "", star.getMessage(), "");
 		}
+
+		if (isWebSocketConnected()) {
+			try {
+				webSocketClient.sendStarData(star);
+			} catch (Exception e) {
+				log.error("Error sending star data to WebSocket server", e);
+			}
+		}
+
 		updatePanel();
 	}
 
@@ -369,6 +429,10 @@ public class F2PStarHuntPlugin extends Plugin
 		}
 		layerTimer += 1;
 		star.setMiners(Integer.toString(count));
+
+		if (isWebSocketConnected()) {
+			webSocketClient.sendStarData(star);
+		}
 	}
 
 	public void refreshEstimate(Star star)
@@ -457,6 +521,7 @@ public class F2PStarHuntPlugin extends Plugin
 			updateMiners(star);
 		}
 		updatePanel();
+		updateConnectionStatus();
 	}
 
 	private boolean nextToStar(Star star, WorldPoint worldPoint) {

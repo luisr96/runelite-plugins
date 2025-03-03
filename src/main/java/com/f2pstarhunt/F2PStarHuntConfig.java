@@ -30,4 +30,15 @@ public interface F2PStarHuntConfig extends Config
 	{
 		return EstimateConfig.SECONDS;
 	}
+
+	@ConfigItem(
+			position = 10,
+			keyName = "websocketUrl",
+			name = "WebSocket Server URL",
+			description = "URL of the WebSocket server to connect to (e.g., ws://localhost:8080)"
+	)
+	default String websocketUrl()
+	{
+		return "ws://localhost:8080";
+	}
 }
