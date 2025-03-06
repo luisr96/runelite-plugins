@@ -1,8 +1,7 @@
 package com.f2pstarhunt;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 
 import org.java_websocket.client.WebSocketClient;
@@ -11,11 +10,17 @@ import org.java_websocket.handshake.ServerHandshake;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 public class StarWebSocketClient extends WebSocketClient {
     private final F2PStarHuntPlugin plugin;
     private final Gson gson = new Gson();
+
+    public static final String MSG_TYPE_STAR_UPDATE = "STAR_UPDATE";
+    public static final String MSG_TYPE_STAR_SYNC = "STAR_SYNC";
+    public static final String MSG_TYPE_STAR_REMOVE = "STAR_REMOVE";
 
     public StarWebSocketClient(String serverUrl, F2PStarHuntPlugin plugin) throws URISyntaxException {
         super(new URI(serverUrl));
@@ -34,8 +39,50 @@ public class StarWebSocketClient extends WebSocketClient {
             JsonObject json = new JsonParser().parse(message).getAsJsonObject();
             String type = json.get("type").getAsString();
             log.debug("Received message type: {}", type);
+
+            plugin.getClientThread().invokeLater(() -> {
+                try {
+                    switch (type) {
+                        case MSG_TYPE_STAR_UPDATE:
+                            log.debug("Sent out star update");
+                            break;
+                        case MSG_TYPE_STAR_SYNC:
+                            log.debug("Received star sync");
+                            handleStarSync(json);
+                            break;
+                        default:
+                            log.debug("Unknown message type: {}", type);
+                            break;
+                    }
+                } catch (Exception e) {
+                    log.error("Error processing message of type {}", type, e);
+                }
+            });
         } catch (Exception e) {
-            log.error("Error processing WebSocket message", e);
+            log.error("Error parsing WebSocket message", e);
+        }
+    }
+
+    private void handleStarSync(JsonObject json) {
+        if (!json.has("data") || !json.get("data").isJsonArray()) {
+            log.warn("Received malformed star data");
+            return;
+        }
+
+        try {
+            JsonArray starsArray = json.getAsJsonArray("data");
+
+            List<StarDTO> starDTOs = gson.fromJson(starsArray, new TypeToken<List<StarDTO>>(){}.getType());
+
+            // Convert DTOs to stars
+            List<Star> remoteStars = new ArrayList<>();
+            for (StarDTO dto : starDTOs) {
+                remoteStars.add(dto.toStar());
+            }
+
+            plugin.updateRemoteStars(remoteStars);
+        } catch (Exception e) {
+            log.error("Error processing star sync", e);
         }
     }
 
@@ -68,6 +115,7 @@ public class StarWebSocketClient extends WebSocketClient {
             starData.addProperty("lastUpdate", Instant.now().toString());
             starData.addProperty("layerTime", star.getFormattedTimeUntilLayerDone(EstimateConfig.SECONDS));
             starData.addProperty("depleteTime", star.getFormattedTimeUntilDepleted(EstimateConfig.SECONDS));
+            starData.addProperty("firstFound", star.getFirstFound());
 
             JsonObject worldPoint = new JsonObject();
             worldPoint.addProperty("x", star.getWorldPoint().getX());
@@ -83,6 +131,27 @@ public class StarWebSocketClient extends WebSocketClient {
             // log.info("Sent star to server: World " + star.getWorld() + ", Tier " + star.getTier() + ", Backup: " + star.isBackup() + ", Time remaining: " + star.getFormattedTimeUntilLayerDone(EstimateConfig.SECONDS) + " / " + star.getFormattedTimeUntilDepleted(EstimateConfig.SECONDS));
         } catch (Exception e) {
             log.error("Error sending star data", e);
+        }
+    }
+
+    public void sendStarRemoval(Star star) {
+        if (!isOpen()) {
+            log.warn("Cannot send star removal: WebSocket is not connected");
+            return;
+        }
+
+        try {
+            JsonObject message = new JsonObject();
+            message.addProperty("type", MSG_TYPE_STAR_REMOVE);
+
+            JsonObject data = new JsonObject();
+            data.addProperty("world", star.getWorld());
+            message.add("data", data);
+
+            send(gson.toJson(message));
+            log.debug("Sent star removal to server: World " + star.getWorld());
+        } catch (Exception e) {
+            log.error("Error sending star removal", e);
         }
     }
 

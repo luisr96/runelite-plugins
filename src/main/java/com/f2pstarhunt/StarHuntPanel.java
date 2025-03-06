@@ -4,6 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JButton;
 import javax.inject.Inject;
 import javax.swing.BorderFactory;
@@ -77,18 +80,14 @@ public class StarHuntPanel extends PluginPanel
     /**
      * Updates the panel with current star data
      */
-    public void updatePanel()
-    {
+    public void updatePanel() {
         starsContainer.removeAll();
 
-        if (plugin.stars.isEmpty())
-        {
+        List<Star> allStars = new ArrayList<>(plugin.getRemoteStars());
+        if (allStars.isEmpty()) {
             starsContainer.add(noStarsPanel);
-        }
-        else
-        {
-            for (Star star : plugin.stars)
-            {
+        } else {
+            for (Star star : allStars) {
                 starsContainer.add(createStarPanel(star));
                 starsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
             }
@@ -140,22 +139,22 @@ public class StarHuntPanel extends PluginPanel
         JPanel infoPanel = new JPanel(new GridLayout(0, 1, 0, 3));
         infoPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-        // World and Tier
-        JPanel worldTierPanel = new JPanel(new BorderLayout());
-        worldTierPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-
+        // World information
         JLabel worldLabel = new JLabel("World: " + star.getWorld());
         worldLabel.setForeground(Color.WHITE);
-        worldTierPanel.add(worldLabel, BorderLayout.WEST);
+        infoPanel.add(worldLabel);
 
-        JLabel tierLabel = new JLabel("Tier: " + star.getTier());
+        // Tier information
+        int tier = star.getTier() != -1 ? star.getTier() : star.getRemoteTier();
+        JLabel tierLabel = new JLabel("Tier: " + tier);
         tierLabel.setForeground(Color.WHITE);
-        worldTierPanel.add(tierLabel, BorderLayout.EAST);
-
-        infoPanel.add(worldTierPanel);
+        infoPanel.add(tierLabel);
 
         // Location
-        JLabel locationLabel = new JLabel("Location: " + star.getLocation().getDescription());
+        String locationDesc = (star.getLocation() != null)
+                ? star.getLocation().getDescription()
+                : "Unknown Location";
+        JLabel locationLabel = new JLabel("Location: " + locationDesc);
         locationLabel.setForeground(Color.WHITE);
         infoPanel.add(locationLabel);
 
@@ -176,53 +175,95 @@ public class StarHuntPanel extends PluginPanel
             infoPanel.add(minersLabel);
         }
 
-        // Estimated time remaining based on config settings
-        if (star.getTierTicksEstimate() != null)
+        // Direct time information from server
+        if (star.getLayerTime() != null && !star.getLayerTime().isEmpty())
         {
-            // Time until layer finishes
-            if (star.getTier() <= star.getTierTicksEstimate().length && star.getTier() > 0 &&
-                    config.estimateLayerTime() != EstimateConfig.NONE)
-            {
-                int layerTicks = star.getTierTicksEstimate()[star.getTier() - 1];
-                String timeText = "Layer done in: ";
+            JLabel layerTimeLabel = new JLabel("Layer done in: " + star.getLayerTime());
+            layerTimeLabel.setForeground(Color.WHITE);
+            infoPanel.add(layerTimeLabel);
+        }
 
-                if (config.estimateLayerTime() == EstimateConfig.TICKS)
-                {
-                    timeText += layerTicks;
-                }
-                else // SECONDS
-                {
-                    int seconds = (layerTicks % 100) * 3 / 5;
-                    int minutes = layerTicks / 100;
-                    timeText += minutes + ":" + String.format("%02d", seconds);
+        if (star.getDepleteTime() != null && !star.getDepleteTime().isEmpty())
+        {
+            JLabel depleteLabel = new JLabel("Depletes in: " + star.getDepleteTime());
+            depleteLabel.setForeground(Color.WHITE);
+            infoPanel.add(depleteLabel);
+        }
+
+        // First found time
+        if (star.getFirstFound() != null && !star.getFirstFound().isEmpty())
+        {
+            try {
+                // Parse the ISO date string
+                Instant firstFoundTime = Instant.parse(star.getFirstFound());
+                // Get current time
+                Instant now = Instant.now();
+                // Calculate duration between now and when the star was found
+                long durationSeconds = java.time.Duration.between(firstFoundTime, now).getSeconds();
+
+                // Format the duration nicely
+                String formattedDuration;
+                if (durationSeconds < 60) {
+                    formattedDuration = durationSeconds + " sec ago";
+                } else if (durationSeconds < 3600) {
+                    formattedDuration = (durationSeconds / 60) + " min ago";
+                } else {
+                    formattedDuration = (durationSeconds / 3600) + " hr " +
+                            ((durationSeconds % 3600) / 60) + " min ago";
                 }
 
-                JLabel layerTimeLabel = new JLabel(timeText);
-                layerTimeLabel.setForeground(Color.WHITE);
-                infoPanel.add(layerTimeLabel);
+                JLabel foundLabel = new JLabel("Found: " + formattedDuration);
+                foundLabel.setForeground(Color.WHITE);
+                infoPanel.add(foundLabel);
+            } catch (Exception e) {
+                // If date parsing fails, just display the raw date
+                JLabel foundLabel = new JLabel("Found: " + star.getFirstFound());
+                foundLabel.setForeground(Color.WHITE);
+                infoPanel.add(foundLabel);
             }
+        }
 
-            // Time until star depletes
-            if (config.estimateDeathTime() != EstimateConfig.NONE)
-            {
-                int depletesTicks = star.getTierTicksEstimate()[0];
-                String timeText = "Depletes in: ";
+        // Last update time
+        if (star.getLastUpdate() != null && !star.getLastUpdate().isEmpty())
+        {
+            try {
+                // Parse the ISO date string
+                Instant lastUpdateTime = Instant.parse(star.getLastUpdate());
+                // Get current time
+                Instant now = Instant.now();
+                // Calculate duration between now and when the star was last updated
+                long durationSeconds = java.time.Duration.between(lastUpdateTime, now).getSeconds();
 
-                if (config.estimateDeathTime() == EstimateConfig.TICKS)
-                {
-                    timeText += depletesTicks;
+                // Format the duration nicely
+                String formattedDuration;
+                if (durationSeconds < 60) {
+                    formattedDuration = durationSeconds + " sec ago";
+                } else if (durationSeconds < 3600) {
+                    formattedDuration = (durationSeconds / 60) + " min ago";
+                } else {
+                    formattedDuration = (durationSeconds / 3600) + " hr " +
+                            ((durationSeconds % 3600) / 60) + " min ago";
                 }
-                else // SECONDS
-                {
-                    int seconds = (depletesTicks % 100) * 3 / 5;
-                    int minutes = depletesTicks / 100;
-                    timeText += minutes + ":" + String.format("%02d", seconds);
-                }
 
-                JLabel depletesLabel = new JLabel(timeText);
-                depletesLabel.setForeground(Color.WHITE);
-                infoPanel.add(depletesLabel);
+                JLabel updateLabel = new JLabel("Updated: " + formattedDuration);
+                updateLabel.setForeground(new Color(190, 190, 190));  // Light gray
+                updateLabel.setFont(FontManager.getRunescapeSmallFont());
+                infoPanel.add(updateLabel);
+            } catch (Exception e) {
+                // If date parsing fails, just display the raw date
+                JLabel updateLabel = new JLabel("Updated: " + star.getLastUpdate());
+                updateLabel.setForeground(new Color(190, 190, 190));  // Light gray
+                updateLabel.setFont(FontManager.getRunescapeSmallFont());
+                infoPanel.add(updateLabel);
             }
+        }
+
+        // Backup indicator
+        if (star.isBackup()) {
+            JLabel backupLabel = new JLabel("Backup Star");
+            backupLabel.setForeground(new Color(255, 200, 0));  // Gold color
+            backupLabel.setFont(FontManager.getRunescapeSmallFont());
+            infoPanel.add(backupLabel);
         }
 
         panel.add(infoPanel);

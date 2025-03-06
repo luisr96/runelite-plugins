@@ -181,6 +181,9 @@ public class F2PStarHuntPlugin extends Plugin
 
 	private NavigationButton navButton;
 
+	@Getter
+	private final List<Star> remoteStars = new ArrayList<>();
+
 	@Provides
 	F2PStarHuntConfig
 	provideConfig(ConfigManager configManager)
@@ -375,12 +378,27 @@ public class F2PStarHuntPlugin extends Plugin
 			return;
 		}
 
+		Star starToRemove = null;
 		for (Star star : stars)
 		{
 			if (event.getGameObject().equals(event.getGameObject()) || event.getGameObject().getWorldLocation().equals(star.getWorldPoint()))
 			{
-				despawnQueue.add(star);
+				starToRemove = star;
 				break;
+			}
+		}
+
+		if (starToRemove != null) {
+			// Send removal message to ws server when star is gone
+			if (tier == 1) {
+				if (isWebSocketConnected()) {
+					webSocketClient.sendStarRemoval(starToRemove);
+				}
+				stars.remove(starToRemove);
+				layerTimer = 0;
+			} else {
+				// For other tiers, add to despawn queue for further processing
+				despawnQueue.add(starToRemove);
 			}
 		}
 	}
@@ -534,5 +552,11 @@ public class F2PStarHuntPlugin extends Plugin
 		if (panel != null) {
 			panel.updatePanel();
 		}
+	}
+
+	public void updateRemoteStars(List<Star> newRemoteStars) {
+		remoteStars.clear();
+		remoteStars.addAll(newRemoteStars);
+		updatePanel();
 	}
 }

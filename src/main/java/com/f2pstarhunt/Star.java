@@ -1,5 +1,6 @@
 package com.f2pstarhunt;
 
+import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.GameObject;
@@ -7,9 +8,10 @@ import net.runelite.api.NPC;
 import net.runelite.api.ObjectID;
 import net.runelite.api.coords.WorldPoint;
 
+import java.time.Instant;
 public class Star
 {
-	public static final String UNKNOWN_MINERS = "?";
+	public static final String UNKNOWN_MINERS = "0";
 
 	private static final int[] TIER_IDS = new int[]{
 		ObjectID.CRASHED_STAR_41229,
@@ -23,31 +25,36 @@ public class Star
 		ObjectID.CRASHED_STAR,
 	};
 
-	@Getter
-	private final WorldPoint worldPoint;
-	@Getter
-	private final int world;
+	@Getter @Setter
+	private WorldPoint worldPoint;
+	@Getter @Setter @SerializedName("world") private int world;
+	@Getter @Setter @SerializedName("tier") private int remoteTier;
+	@Getter @Setter @SerializedName("health") private int health;
+	@Getter @Setter @SerializedName("miners") private String miners;
+	@Getter @SerializedName("location") Location location;
+	@Getter @Setter @SerializedName("backup") private boolean isBackup = true;
+	@Getter @Setter @SerializedName("lastUpdate") private String lastUpdate;
+	@Getter @Setter @SerializedName("layerTime") private String layerTime;
+	@Getter @Setter @SerializedName("depleteTime") private String depleteTime;
+	@Getter @Setter @SerializedName("firstFound") private String firstFound = Instant.now().toString();
+
 	@Getter
 	@Setter
 	private NPC npc;
 	@Getter
 	@Setter
 	private GameObject object;
-	@Setter
-	@Getter
-	private String miners = UNKNOWN_MINERS;
-	@Getter
-	private final Location location;
-	private int health = -1;
 	@Getter
 	@Setter
 	private int[] tierTicksEstimate;
 	@Getter
 	@Setter
 	private String worldInfo = "";
-	@Getter
-	@Setter
-	private boolean isBackup = true;
+
+	public void setLocation(String locationStr) {
+		this.location = Location.fromDescription(locationStr);
+	}
+
 
 	public Star(NPC npc, int world)
 	{
@@ -64,6 +71,9 @@ public class Star
 		this.location = Location.forLocation(worldPoint);
 		this.world = world;
 	}
+
+	// For gson serialization
+	public Star() {}
 
 	public int getTier()
 	{

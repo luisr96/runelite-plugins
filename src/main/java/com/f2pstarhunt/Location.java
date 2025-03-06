@@ -173,4 +173,16 @@ public class Location
 		}
 		return location;
 	}
+
+	/**
+	 * Creates a Location from a description string.
+	 */
+	public static Location fromDescription(String description) {
+		for (Location loc : Location.locations.values()) {
+			if (loc.getDescription().equalsIgnoreCase(description)) {
+				return loc;
+			}
+		}
+        return null;
+    }
 }
