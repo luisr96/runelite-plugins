@@ -40,16 +40,8 @@ import java.util.Set;
 import javax.inject.Inject;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.AnimationID;
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.GameObject;
-import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.ItemID;
+import net.runelite.api.*;
+
 import static net.runelite.api.ItemID.GOLDEN_PROSPECTOR_BOOTS;
 import static net.runelite.api.ItemID.GOLDEN_PROSPECTOR_HELMET;
 import static net.runelite.api.ItemID.GOLDEN_PROSPECTOR_JACKET;
@@ -59,13 +51,7 @@ import static net.runelite.api.ItemID.PROSPECTOR_HELMET;
 import static net.runelite.api.ItemID.PROSPECTOR_JACKET;
 import static net.runelite.api.ItemID.PROSPECTOR_LEGS;
 import static net.runelite.api.ItemID.VARROCK_ARMOUR_4;
-import net.runelite.api.NPC;
-import net.runelite.api.NullNpcID;
-import net.runelite.api.Player;
-import net.runelite.api.PlayerComposition;
-import net.runelite.api.Renderable;
-import net.runelite.api.Skill;
-import net.runelite.api.WorldType;
+
 import net.runelite.api.coords.Angle;
 import net.runelite.api.coords.Direction;
 import net.runelite.api.coords.WorldArea;
@@ -95,9 +81,13 @@ import net.runelite.client.util.ImageUtil;
 @Slf4j
 public class F2PStarHuntPlugin extends Plugin
 {
+	public static final FriendsChatRankRequirement BACKUP_STAR_RANK_REQUIREMENT = FriendsChatRankRequirement.RECRUIT;
 	private static final int NPC_ID = NullNpcID.NULL_10629;
 	private static final int MAX_PLAYER_LOAD_DIST = 13;
 	private static final Queue<Star> despawnQueue = new LinkedList<>();
+
+	@Getter
+	private final Map<String, String> worldSpawnTimes = new HashMap<>();
 
 	private static final Set<Integer> dragonPickSpecAnims = ImmutableSet.of(
 			7138, // Dragon pickaxe
@@ -557,6 +547,28 @@ public class F2PStarHuntPlugin extends Plugin
 	public void updateRemoteStars(List<Star> newRemoteStars) {
 		remoteStars.clear();
 		remoteStars.addAll(newRemoteStars);
+		updatePanel();
+	}
+
+	public boolean canSeeBackupStars() {
+		FriendsChatRank playerRank = null;
+
+		// Get the player's current friends chat rank
+		if (client.getFriendsChatManager() != null) {
+			playerRank = client.getFriendsChatManager().findByName(client.getLocalPlayer().getName()).getRank();
+		}
+
+		// Check if the player meets the rank requirement
+		return BACKUP_STAR_RANK_REQUIREMENT.meetsRequirement(playerRank);
+	}
+
+	public void updateWorldSpawnTimes(List<WorldSpawnTime> spawnTimes) {
+		worldSpawnTimes.clear();
+		for (WorldSpawnTime spawnTime : spawnTimes) {
+			if (spawnTime.getWorld() != null && !spawnTime.getWorld().isEmpty()) {
+				worldSpawnTimes.put(spawnTime.getWorld(), spawnTime.getAvgSpawn());
+			}
+		}
 		updatePanel();
 	}
 }

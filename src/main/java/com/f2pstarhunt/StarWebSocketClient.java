@@ -21,6 +21,7 @@ public class StarWebSocketClient extends WebSocketClient {
     public static final String MSG_TYPE_STAR_UPDATE = "STAR_UPDATE";
     public static final String MSG_TYPE_STAR_SYNC = "STAR_SYNC";
     public static final String MSG_TYPE_STAR_REMOVE = "STAR_REMOVE";
+    public static final String MSG_TYPE_SPAWN_TIMES = "SPAWN_TIMES";
 
     public StarWebSocketClient(String serverUrl, F2PStarHuntPlugin plugin) throws URISyntaxException {
         super(new URI(serverUrl));
@@ -50,6 +51,12 @@ public class StarWebSocketClient extends WebSocketClient {
                             log.debug("Received star sync");
                             handleStarSync(json);
                             break;
+                        case MSG_TYPE_SPAWN_TIMES:  // Handle spawn times
+                            log.debug("Received spawn times update");
+                            System.out.println("Spawn times");
+                            System.out.println(json);
+                            handleSpawnTimes(json);
+                            break;
                         default:
                             log.debug("Unknown message type: {}", type);
                             break;
@@ -60,6 +67,33 @@ public class StarWebSocketClient extends WebSocketClient {
             });
         } catch (Exception e) {
             log.error("Error parsing WebSocket message", e);
+        }
+    }
+
+    private void handleSpawnTimes(JsonObject json) {
+        if (!json.has("data") || !json.get("data").isJsonArray()) {
+            log.warn("Received malformed spawn times data");
+            return;
+        }
+
+        try {
+            JsonArray spawnTimesArray = json.getAsJsonArray("data");
+            List<WorldSpawnTime> spawnTimes = new ArrayList<>();
+
+            for (JsonElement element : spawnTimesArray) {
+                if (element.isJsonObject()) {
+                    JsonObject worldData = element.getAsJsonObject();
+                    String world = worldData.has("world") ? worldData.get("world").getAsString() : "";
+                    String avgSpawn = worldData.has("avgSpawn") ? worldData.get("avgSpawn").getAsString() : "";
+
+                    spawnTimes.add(new WorldSpawnTime(world, avgSpawn));
+                }
+            }
+
+            // Update the plugin with the spawn times
+            plugin.updateWorldSpawnTimes(spawnTimes);
+        } catch (Exception e) {
+            log.error("Error processing spawn times data", e);
         }
     }
 

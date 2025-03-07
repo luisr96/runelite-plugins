@@ -7,6 +7,7 @@ import java.awt.GridLayout;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.swing.JButton;
 import javax.inject.Inject;
 import javax.swing.BorderFactory;
@@ -14,7 +15,9 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
+import net.runelite.api.FriendsChatRank;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
@@ -29,6 +32,16 @@ public class StarHuntPanel extends PluginPanel
     private final JPanel noStarsPanel = new JPanel();
     private final JLabel connectionStatusLabel = new JLabel();
     private final JPanel connectionPanel = new JPanel();
+
+    // Rank info panel
+    private JPanel rankInfoPanel;
+    private JLabel rankInfoLabel;
+    private boolean rankInfoAdded = false;
+
+    // Spawn times panel
+    private JPanel spawnTimesPanel;
+    private boolean showingSpawnTimes = false;
+    private JButton toggleViewButton;
 
     @Inject
     public StarHuntPanel(F2PStarHuntPlugin plugin, F2PStarHuntConfig config)
@@ -74,23 +87,111 @@ public class StarHuntPanel extends PluginPanel
 
         add(starsContainer, BorderLayout.CENTER);
 
+        // Initialize rank info
+        updateRankInfo();
+
+        // Initialize spawn times panel
+        initializeSpawnTimesPanel();
+
         updatePanel();
     }
 
     /**
-     * Updates the panel with current star data
+     * Updates the panel with current star data, organizing into sections
      */
     public void updatePanel() {
+        // Update rank info first
+        updateRankInfo();
+
+        // Clear the container
         starsContainer.removeAll();
 
-        List<Star> allStars = new ArrayList<>(plugin.getRemoteStars());
-        if (allStars.isEmpty()) {
+        // Get all stars and split into primary and backup lists
+        List<Star> primaryStars = new ArrayList<>();
+        List<Star> backupStars = new ArrayList<>();
+
+        for (Star star : plugin.getRemoteStars()) {
+            if (star.isBackup()) {
+                backupStars.add(star);
+            } else {
+                primaryStars.add(star);
+            }
+        }
+
+        // Sort the primary stars list (higher tier first, then by miners)
+        primaryStars.sort((a, b) -> {
+            int tierA = a.getTier() != -1 ? a.getTier() : a.getRemoteTier();
+            int tierB = b.getTier() != -1 ? b.getTier() : b.getRemoteTier();
+            if (tierA != tierB) {
+                return tierB - tierA;
+            }
+
+            // If tiers are the same, sort by miners
+            try {
+                int minersA = Integer.parseInt(a.getMiners());
+                int minersB = Integer.parseInt(b.getMiners());
+                return minersB - minersA;
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        });
+
+        // Sort the backup stars list
+        backupStars.sort((a, b) -> {
+            int tierA = a.getTier() != -1 ? a.getTier() : a.getRemoteTier();
+            int tierB = b.getTier() != -1 ? b.getTier() : b.getRemoteTier();
+            if (tierA != tierB) {
+                return tierB - tierA;
+            }
+
+            // If tiers are the same, sort by miners
+            try {
+                int minersA = Integer.parseInt(a.getMiners());
+                int minersB = Integer.parseInt(b.getMiners());
+                return minersB - minersA;
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        });
+
+        // If no stars at all, show the empty message
+        if (primaryStars.isEmpty() && (backupStars.isEmpty() || !plugin.canSeeBackupStars())) {
             starsContainer.add(noStarsPanel);
         } else {
-            for (Star star : allStars) {
-                starsContainer.add(createStarPanel(star));
-                starsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+            // Add primary stars section header if there are any primary stars
+            if (!primaryStars.isEmpty()) {
+                JPanel primaryHeader = createSectionHeader("Primary Stars", new Color(220, 220, 255));
+                starsContainer.add(primaryHeader);
+                starsContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+
+                // Add all primary stars
+                for (Star star : primaryStars) {
+                    starsContainer.add(createStarPanel(star));
+                    starsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+                }
             }
+
+            // Add backup stars if player has sufficient rank
+            if (!backupStars.isEmpty() && plugin.canSeeBackupStars()) {
+                // Add some extra space between sections
+                starsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+
+                // Add backup stars section header
+                JPanel backupHeader = createSectionHeader("Backup Stars", new Color(255, 220, 180));
+                starsContainer.add(backupHeader);
+                starsContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+
+                // Add all backup stars
+                for (Star star : backupStars) {
+                    starsContainer.add(createStarPanel(star));
+                    starsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+                }
+            }
+        }
+
+        // Also update the spawn times panel if it's being shown
+        if (showingSpawnTimes) {
+            updateSpawnTimesPanel();
         }
 
         starsContainer.revalidate();
@@ -125,7 +226,7 @@ public class StarHuntPanel extends PluginPanel
     }
 
     /**
-     * Creates a panel for an individual star
+     * Creates a panel for an individual star with enhanced information
      */
     private JPanel createStarPanel(Star star)
     {
@@ -139,8 +240,19 @@ public class StarHuntPanel extends PluginPanel
         JPanel infoPanel = new JPanel(new GridLayout(0, 1, 0, 3));
         infoPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-        // World information
-        JLabel worldLabel = new JLabel("World: " + star.getWorld());
+        // World information with spawn time
+        String worldText = "World: " + star.getWorld();
+
+        // Add spawn time info if available
+        String worldStr = String.valueOf(star.getWorld());
+        if (plugin.getWorldSpawnTimes().containsKey(worldStr)) {
+            String spawnTime = plugin.getWorldSpawnTimes().get(worldStr);
+            if (!spawnTime.isEmpty()) {
+                worldText += " (Avg spawn: " + spawnTime + " min)";
+            }
+        }
+
+        JLabel worldLabel = new JLabel(worldText);
         worldLabel.setForeground(Color.WHITE);
         infoPanel.add(worldLabel);
 
@@ -268,5 +380,239 @@ public class StarHuntPanel extends PluginPanel
 
         panel.add(infoPanel);
         return panel;
+    }
+
+    /**
+     * Creates a section header panel
+     */
+    private JPanel createSectionHeader(String text, Color color) {
+        JPanel header = new JPanel();
+        header.setLayout(new BorderLayout());
+        header.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, ColorScheme.LIGHT_GRAY_COLOR),
+                BorderFactory.createEmptyBorder(2, 5, 2, 5)
+        ));
+
+        JLabel label = new JLabel(text);
+        label.setFont(FontManager.getRunescapeBoldFont());
+        label.setForeground(color);
+        header.add(label, BorderLayout.CENTER);
+
+        return header;
+    }
+
+    /**
+     * Updates rank information display in the panel
+     */
+    public void updateRankInfo() {
+        // Check if we need to add rank requirement info
+        boolean canSeeBackupStars = plugin.canSeeBackupStars();
+
+        // If this component doesn't exist yet, create it
+        if (rankInfoPanel == null) {
+            rankInfoPanel = new JPanel();
+            rankInfoPanel.setLayout(new BorderLayout());
+            rankInfoPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+            rankInfoPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+            // Create label for rank information
+            rankInfoLabel = new JLabel();
+            rankInfoLabel.setForeground(Color.LIGHT_GRAY);
+            rankInfoLabel.setFont(FontManager.getRunescapeSmallFont());
+            rankInfoPanel.add(rankInfoLabel, BorderLayout.CENTER);
+        }
+
+        // Update rank info text
+//        if (!canSeeBackupStars) {
+//            rankInfoLabel.setText("Need " + plugin.BACKUP_STAR_RANK_REQUIREMENT.toString() + "+ rank to see backup stars");
+//            rankInfoLabel.setForeground(new Color(255, 190, 100)); // Orange-yellow
+//        } else {
+//            rankInfoLabel.setText("Showing all stars including backups");
+//            rankInfoLabel.setForeground(new Color(150, 250, 150)); // Light green
+//        }
+
+        // Add panel if it's not already there
+        if (!rankInfoAdded) {
+            add(rankInfoPanel, BorderLayout.SOUTH);
+            rankInfoAdded = true;
+            revalidate();
+        }
+    }
+
+    /**
+     * Initialize the spawn times panel and toggle button
+     */
+    private void initializeSpawnTimesPanel() {
+        // Create the spawn times panel
+        spawnTimesPanel = new JPanel(new BorderLayout());
+        spawnTimesPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        // Create a toggle button
+        toggleViewButton = new JButton("View Spawn Times");
+        toggleViewButton.setFocusPainted(false);
+        toggleViewButton.addActionListener(e -> toggleView());
+
+        JPanel buttonPanel = new JPanel(new BorderLayout());
+        buttonPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        buttonPanel.setBorder(new EmptyBorder(5, 0, 0, 0));
+        buttonPanel.add(toggleViewButton, BorderLayout.CENTER);
+
+        // If we have a rank info panel, insert the button above it,
+        // otherwise add it to the bottom
+        if (rankInfoPanel != null) {
+            rankInfoPanel.add(buttonPanel, BorderLayout.NORTH);
+        } else {
+            add(buttonPanel, BorderLayout.SOUTH);
+        }
+    }
+
+    /**
+     * Toggle between stars view and spawn times view
+     */
+    private void toggleView() {
+        if (showingSpawnTimes) {
+            // Switch to stars view
+            remove(spawnTimesPanel);
+            add(starsContainer, BorderLayout.CENTER);
+            toggleViewButton.setText("View Spawn Times");
+            showingSpawnTimes = false;
+        } else {
+            // Switch to spawn times view
+            remove(starsContainer);
+            add(spawnTimesPanel, BorderLayout.CENTER);
+            toggleViewButton.setText("View Stars");
+            showingSpawnTimes = true;
+            updateSpawnTimesPanel();
+        }
+
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Update the spawn times panel with the latest data
+     */
+    private void updateSpawnTimesPanel() {
+        spawnTimesPanel.removeAll();
+
+        // Create header for the panel
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        headerPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+        JLabel titleLabel = new JLabel("World Spawn Times");
+        titleLabel.setForeground(Color.WHITE);
+        titleLabel.setFont(FontManager.getRunescapeBoldFont());
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+
+        spawnTimesPanel.add(headerPanel, BorderLayout.NORTH);
+
+        // Create the table panel
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        // Create the table headers
+        JPanel tableHeader = new JPanel(new GridLayout(1, 2));
+        tableHeader.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        tableHeader.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, ColorScheme.LIGHT_GRAY_COLOR));
+
+        JLabel worldHeader = new JLabel("World");
+        worldHeader.setForeground(Color.WHITE);
+        worldHeader.setFont(FontManager.getRunescapeBoldFont());
+        worldHeader.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+        JLabel spawnHeader = new JLabel("Avg Spawn (min)");
+        spawnHeader.setForeground(Color.WHITE);
+        spawnHeader.setFont(FontManager.getRunescapeBoldFont());
+        spawnHeader.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+        tableHeader.add(worldHeader);
+        tableHeader.add(spawnHeader);
+
+        tablePanel.add(tableHeader, BorderLayout.NORTH);
+
+        // Create the table content
+        JPanel tableContent = new JPanel();
+        tableContent.setLayout(new BoxLayout(tableContent, BoxLayout.Y_AXIS));
+        tableContent.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        // Get spawn times data
+        Map<String, String> spawnTimes = plugin.getWorldSpawnTimes();
+
+        if (spawnTimes.isEmpty()) {
+            JLabel emptyLabel = new JLabel("No spawn time data available");
+            emptyLabel.setForeground(Color.LIGHT_GRAY);
+            emptyLabel.setBorder(new EmptyBorder(10, 10, 10, 10));
+            tableContent.add(emptyLabel);
+        } else {
+            // Sort worlds by number
+            List<String> worlds = new ArrayList<>(spawnTimes.keySet());
+            worlds.sort((a, b) -> {
+                try {
+                    return Integer.parseInt(a) - Integer.parseInt(b);
+                } catch (NumberFormatException e) {
+                    return a.compareTo(b);
+                }
+            });
+
+            // Create a row for each world with spawn data
+            for (String world : worlds) {
+                // REMOVED: Skip worlds with empty spawn times
+                String spawnTime = spawnTimes.get(world);
+
+                // Skip empty world entries (but keep worlds with empty spawn times)
+                if (world == null || world.isEmpty()) {
+                    continue;
+                }
+
+                JPanel rowPanel = new JPanel(new GridLayout(1, 2));
+                rowPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                rowPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, ColorScheme.DARK_GRAY_COLOR));
+
+                JLabel worldLabel = new JLabel(world);
+                worldLabel.setForeground(Color.WHITE);
+                worldLabel.setBorder(new EmptyBorder(3, 5, 3, 5));
+
+                JLabel spawnLabel = new JLabel(spawnTime != null && !spawnTime.isEmpty() ? spawnTime : "-");
+                spawnLabel.setForeground(Color.WHITE);
+                spawnLabel.setBorder(new EmptyBorder(3, 5, 3, 5));
+
+                rowPanel.add(worldLabel);
+                rowPanel.add(spawnLabel);
+
+                tableContent.add(rowPanel);
+            }
+        }
+
+        // Add the table content to a scroll pane
+        JScrollPane scrollPane = new JScrollPane(tableContent);
+        scrollPane.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        scrollPane.setBorder(null);
+
+        tablePanel.add(scrollPane, BorderLayout.CENTER);
+        spawnTimesPanel.add(tablePanel, BorderLayout.CENTER);
+    }
+
+    /**
+     * Helper method to extract minutes from a time string like "5:30"
+     */
+    private int getMinutesFromTimeString(String timeStr) {
+        if (timeStr == null || timeStr.isEmpty()) {
+            return -1;
+        }
+
+        try {
+            String[] parts = timeStr.split(":");
+            if (parts.length == 2) {
+                int minutes = Integer.parseInt(parts[0]);
+                int seconds = Integer.parseInt(parts[1]);
+                return minutes * 60 + seconds;
+            }
+        } catch (Exception e) {
+            // Ignore parsing errors
+        }
+
+        return -1;
     }
 }
