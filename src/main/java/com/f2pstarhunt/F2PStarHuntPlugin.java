@@ -174,6 +174,9 @@ public class F2PStarHuntPlugin extends Plugin
 	@Getter
 	private final List<Star> remoteStars = new ArrayList<>();
 
+	@Getter
+	private DashboardData dashboardData = new DashboardData();
+
 	@Provides
 	F2PStarHuntConfig
 	provideConfig(ConfigManager configManager)
@@ -570,5 +573,24 @@ public class F2PStarHuntPlugin extends Plugin
 			}
 		}
 		updatePanel();
+	}
+
+	/**
+	 * Updates the dashboard data and refreshes the panel
+	 */
+	public void updateDashboardData(DashboardData data) {
+		if (data != null) {
+			this.dashboardData = data;
+
+			// Update the panel with the new dashboard data
+			if (panel != null) {
+				panel.updateWaveTimings(
+						data.getTimeSinceWaveBegan(),
+						data.getWaveEndsIn(),
+						data.getSpawnPhaseStatus(),
+						data.getStartScoutingIn()  // Pass the scout time to the panel
+				);
+			}
+		}
 	}
 }

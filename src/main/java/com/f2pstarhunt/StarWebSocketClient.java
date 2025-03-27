@@ -22,6 +22,7 @@ public class StarWebSocketClient extends WebSocketClient {
     public static final String MSG_TYPE_STAR_SYNC = "STAR_SYNC";
     public static final String MSG_TYPE_STAR_REMOVE = "STAR_REMOVE";
     public static final String MSG_TYPE_SPAWN_TIMES = "SPAWN_TIMES";
+    public static final String MSG_TYPE_DASHBOARD_UPDATE = "DASHBOARD_UPDATE";
 
     public StarWebSocketClient(String serverUrl, F2PStarHuntPlugin plugin) throws URISyntaxException {
         super(new URI(serverUrl));
@@ -51,11 +52,13 @@ public class StarWebSocketClient extends WebSocketClient {
                             log.debug("Received star sync");
                             handleStarSync(json);
                             break;
-                        case MSG_TYPE_SPAWN_TIMES:  // Handle spawn times
+                        case MSG_TYPE_SPAWN_TIMES:
                             log.debug("Received spawn times update");
-                            System.out.println("Spawn times");
-                            System.out.println(json);
                             handleSpawnTimes(json);
+                            break;
+                        case MSG_TYPE_DASHBOARD_UPDATE:
+                            log.debug("Received dashboard update");
+                            handleDashboardUpdate(json);
                             break;
                         default:
                             log.debug("Unknown message type: {}", type);
@@ -67,6 +70,42 @@ public class StarWebSocketClient extends WebSocketClient {
             });
         } catch (Exception e) {
             log.error("Error parsing WebSocket message", e);
+        }
+    }
+
+    private void handleDashboardUpdate(JsonObject json) {
+        if (!json.has("data") || !json.get("data").isJsonObject()) {
+            log.warn("Received malformed dashboard data");
+            return;
+        }
+
+        try {
+            JsonObject dashboardData = json.getAsJsonObject("data");
+
+            DashboardData data = new DashboardData();
+
+            // Extract the values from the JSON
+            if (dashboardData.has("waveEndsIn")) {
+                data.setWaveEndsIn(dashboardData.get("waveEndsIn").getAsString());
+            }
+
+            if (dashboardData.has("timeSinceWaveBegan")) {
+                data.setTimeSinceWaveBegan(dashboardData.get("timeSinceWaveBegan").getAsString());
+            }
+
+            if (dashboardData.has("startScoutingIn")) {
+                data.setStartScoutingIn(dashboardData.get("startScoutingIn").getAsString());
+            }
+
+            if (dashboardData.has("spawnPhaseStatus")) {
+                data.setSpawnPhaseStatus(dashboardData.get("spawnPhaseStatus").getAsString());
+            }
+
+            // Update the plugin with dashboard data
+            plugin.updateDashboardData(data);
+
+        } catch (Exception e) {
+            log.error("Error processing dashboard data", e);
         }
     }
 

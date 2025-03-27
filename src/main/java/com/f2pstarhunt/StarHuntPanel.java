@@ -33,6 +33,12 @@ public class StarHuntPanel extends PluginPanel
     private final JLabel connectionStatusLabel = new JLabel();
     private final JPanel connectionPanel = new JPanel();
 
+    // Dashboard information labels
+    private final JLabel waveBeganLabel = new JLabel();
+    private final JLabel waveEndsLabel = new JLabel();
+    private final JLabel spawnPhaseEndsLabel = new JLabel();
+    private final JLabel scoutTimeLabel = new JLabel();
+
     // Rank info panel
     private JPanel rankInfoPanel;
     private JLabel rankInfoLabel;
@@ -53,6 +59,12 @@ public class StarHuntPanel extends PluginPanel
         setBorder(new EmptyBorder(10, 10, 10, 10));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
 
+        // Create a top section with vertical layout
+        JPanel topSection = new JPanel();
+        topSection.setLayout(new BoxLayout(topSection, BoxLayout.Y_AXIS));
+        topSection.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        // 1. Title panel (first row of top section)
         JPanel titlePanel = new JPanel();
         titlePanel.setBorder(new EmptyBorder(0, 0, 10, 0));
         titlePanel.setLayout(new BorderLayout());
@@ -72,12 +84,69 @@ public class StarHuntPanel extends PluginPanel
         connectionPanel.add(connectionStatusLabel, BorderLayout.WEST);
 
         titlePanel.add(connectionPanel, BorderLayout.EAST);
+        topSection.add(titlePanel);
 
-        add(titlePanel, BorderLayout.NORTH);
+        // 2. Wave timing information panel (second row of top section)
+        JPanel timingPanel = new JPanel();
+        timingPanel.setLayout(new GridLayout(3, 1, 0, 3));
+        timingPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        timingPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(ColorScheme.DARKER_GRAY_HOVER_COLOR, 1),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
 
+        // Initialize timing labels with placeholder values
+        scoutTimeLabel.setText("When to scout: Loading...");
+        scoutTimeLabel.setForeground(Color.WHITE);
+        scoutTimeLabel.setFont(FontManager.getRunescapeSmallFont());
+
+        waveBeganLabel.setText("Wave began: Loading...");
+        waveBeganLabel.setForeground(Color.WHITE);
+        waveBeganLabel.setFont(FontManager.getRunescapeSmallFont());
+
+        waveEndsLabel.setText("Wave ends: Loading...");
+        waveEndsLabel.setForeground(Color.WHITE);
+        waveEndsLabel.setFont(FontManager.getRunescapeSmallFont());
+
+        spawnPhaseEndsLabel.setText("Spawn phase ends: Loading...");
+        spawnPhaseEndsLabel.setForeground(Color.WHITE);
+        spawnPhaseEndsLabel.setFont(FontManager.getRunescapeSmallFont());
+
+        timingPanel.setLayout(new GridLayout(4, 1, 0, 3)); // Update to 4 rows instead of 3
+        timingPanel.add(waveBeganLabel);
+        timingPanel.add(waveEndsLabel);
+        timingPanel.add(scoutTimeLabel); // Add the new label
+        timingPanel.add(spawnPhaseEndsLabel);
+
+        JPanel timingContainer = new JPanel(new BorderLayout());
+        timingContainer.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        timingContainer.setBorder(new EmptyBorder(0, 0, 10, 0));
+        timingContainer.add(timingPanel, BorderLayout.CENTER);
+
+        topSection.add(timingContainer);
+
+        // 3. Button panel (third row of top section)
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new BorderLayout());
+        buttonPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        buttonPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
+
+        // Create toggle button here
+        toggleViewButton = new JButton("View Spawn Times");
+        toggleViewButton.setFocusPainted(false);
+        toggleViewButton.addActionListener(e -> toggleView());
+        buttonPanel.add(toggleViewButton, BorderLayout.CENTER);
+
+        topSection.add(buttonPanel);
+
+        // Add the complete top section to the main panel
+        add(topSection, BorderLayout.NORTH);
+
+        // Initialize stars container
         starsContainer.setLayout(new BoxLayout(starsContainer, BoxLayout.Y_AXIS));
         starsContainer.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
+        // Initialize no stars panel
         noStarsPanel.setLayout(new BorderLayout());
         noStarsPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -94,6 +163,58 @@ public class StarHuntPanel extends PluginPanel
         initializeSpawnTimesPanel();
 
         updatePanel();
+    }
+
+    /**
+     * Updates the wave timing information displayed at the top of the panel
+     */
+    public void updateWaveTimings(String timeSinceWaveBegan, String waveEndsIn, String spawnPhaseStatus, String startScoutingIn) {
+        // Update labels with the data from the server
+        if (timeSinceWaveBegan != null && !timeSinceWaveBegan.equals("Unknown")) {
+            waveBeganLabel.setText("Wave began: " + timeSinceWaveBegan + " min ago");
+        } else {
+            waveBeganLabel.setText("Wave began: Unknown");
+        }
+
+        if (waveEndsIn != null && !waveEndsIn.equals("Unknown")) {
+            waveEndsLabel.setText("Wave ends in: " + waveEndsIn + " min");
+        } else {
+            waveEndsLabel.setText("Wave ends in: Unknown");
+        }
+
+        // Handle the scout time label
+        if (startScoutingIn != null && !startScoutingIn.equals("Unknown")) {
+            if (startScoutingIn.equalsIgnoreCase("Scout now")) {
+                scoutTimeLabel.setText("When to scout: Scout now");
+                scoutTimeLabel.setForeground(new Color(255, 200, 0)); // Gold/yellow for emphasis
+            } else {
+                scoutTimeLabel.setText("When to scout: " + startScoutingIn + " min");
+                scoutTimeLabel.setForeground(Color.WHITE);
+            }
+        } else {
+            scoutTimeLabel.setText("When to scout: Unknown");
+            scoutTimeLabel.setForeground(Color.WHITE);
+        }
+
+        // Use special formatting for spawn phase status based on the value
+        if (spawnPhaseStatus != null) {
+            if ("Fully spawned".equalsIgnoreCase(spawnPhaseStatus)) {
+                spawnPhaseEndsLabel.setText("Spawn phase: " + spawnPhaseStatus);
+                spawnPhaseEndsLabel.setForeground(new Color(100, 255, 100)); // Light green for fully spawned
+            } else if (spawnPhaseStatus.equals("Unknown")) {
+                spawnPhaseEndsLabel.setText("Spawn phase ends: Unknown");
+                spawnPhaseEndsLabel.setForeground(Color.WHITE);
+            } else {
+                spawnPhaseEndsLabel.setText("Spawn phase ends in: " + spawnPhaseStatus + " min");
+                spawnPhaseEndsLabel.setForeground(Color.WHITE);
+            }
+        } else {
+            spawnPhaseEndsLabel.setText("Spawn phase ends: Unknown");
+            spawnPhaseEndsLabel.setForeground(Color.WHITE);
+        }
+
+        revalidate();
+        repaint();
     }
 
     /**
@@ -441,30 +562,14 @@ public class StarHuntPanel extends PluginPanel
     }
 
     /**
-     * Initialize the spawn times panel and toggle button
+     * Initialize the spawn times panel
      */
     private void initializeSpawnTimesPanel() {
         // Create the spawn times panel
         spawnTimesPanel = new JPanel(new BorderLayout());
         spawnTimesPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-        // Create a toggle button
-        toggleViewButton = new JButton("View Spawn Times");
-        toggleViewButton.setFocusPainted(false);
-        toggleViewButton.addActionListener(e -> toggleView());
-
-        JPanel buttonPanel = new JPanel(new BorderLayout());
-        buttonPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
-        buttonPanel.setBorder(new EmptyBorder(5, 0, 0, 0));
-        buttonPanel.add(toggleViewButton, BorderLayout.CENTER);
-
-        // If we have a rank info panel, insert the button above it,
-        // otherwise add it to the bottom
-        if (rankInfoPanel != null) {
-            rankInfoPanel.add(buttonPanel, BorderLayout.NORTH);
-        } else {
-            add(buttonPanel, BorderLayout.SOUTH);
-        }
+        // No need to create button here since it's now in the constructor
     }
 
     /**
@@ -558,7 +663,7 @@ public class StarHuntPanel extends PluginPanel
 
             // Create a row for each world with spawn data
             for (String world : worlds) {
-                // REMOVED: Skip worlds with empty spawn times
+                // Skip worlds with empty spawn times
                 String spawnTime = spawnTimes.get(world);
 
                 // Skip empty world entries (but keep worlds with empty spawn times)
